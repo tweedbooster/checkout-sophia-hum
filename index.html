@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Donación Segura | Ayuda a Sophia</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://js.stripe.com/v3/"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body { 
+      font-family: 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+      background-color: #f4f5f7; 
+    }
+    .stripe-container { min-height: 150px; }
+    
+    .text-gfm-green { color: #55A44D; }
+    .bg-gfm-green { background-color: #55A44D; }
+    
+    .btn-checkout { 
+      background-color: #a8e063; 
+      color: #1a3a1a;
+      transition: all 0.2s; 
+    }
+    .btn-checkout:hover { 
+      background-color: #1a3a1a; 
+      color: #a8e063;
+      transform: translateY(-1px); 
+    }
+    
+    .apple-pay-btn {
+      background-color: #000;
+      color: #fff;
+      transition: opacity 0.2s;
+    }
+    .apple-pay-btn:hover { opacity: 0.8; }
+    
+    .google-pay-btn {
+      background-color: #fff;
+      color: #3c4043;
+      border: 1px solid #dadce0;
+      transition: background-color 0.2s;
+    }
+    .google-pay-btn:hover { background-color: #f8f9fa; }
+  </style>
+</head>
+<body class="antialiased text-gray-800 flex flex-col min-h-screen">
+
+  <!-- Minimal Header -->
+  <header class="py-4 px-6 flex justify-between items-center max-w-[500px] mx-auto w-full">
+    <span class="text-2xl font-[800] tracking-tight text-gfm-green">GoFund<span class="text-gray-900">Me</span></span>
+    <div class="flex items-center gap-1.5 text-xs font-[700] text-gray-500">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-[#55A44D]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+      <span class="hidden sm:inline">Seguro por</span>
+      <img src="https://upload.wikimedia.org/wikipedia/commons/b/ba/Stripe_Logo%2C_revised_2016.svg" alt="Stripe" class="h-4 ml-0.5 opacity-80">
+    </div>
+  </header>
+
+  <main class="flex-grow flex items-start justify-center px-4 pt-2 pb-12">
+    
+    <!-- Ultra-Clean Focused Card Layout (Mobile-first, max 500px wide) -->
+    <div class="w-full max-w-[500px] bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 overflow-hidden">
+      
+      <!-- Full Width Banner -->
+      <img src="Banner sophie espanhol.webp" alt="Tu Lucha No Puede Esperar" class="w-full h-auto object-cover border-b border-gray-100" onerror="this.src='https://images.unsplash.com/photo-1516627145497-ae6968895b74?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80';">
+
+      <!-- Progress Mini-Bar -->
+      <div class="p-6 bg-white border-b border-gray-100 pb-5">
+        <div class="w-full">
+          <div class="flex justify-between text-xs font-[800] text-gray-800 mb-1.5">
+            <span id="raised-text">$212,450 recaudados</span>
+            <span class="text-gray-400">Meta: $268,000</span>
+          </div>
+          <div class="w-full bg-gray-100 rounded-full h-[6px] overflow-hidden">
+            <div id="progress-bar" class="h-full rounded-full" style="background: linear-gradient(90deg, #a8e063, #55A44D); width: 79%"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Payment Section -->
+      <div class="p-6 bg-[#fcfcfc]">
+        
+        <form id="payment-form">
+          
+          <!-- Amount Display (Simulated from URL) -->
+          <div class="flex justify-between items-center mb-6 p-4 bg-[#f8fcf5] border border-[#d2edb6] rounded-xl shadow-sm">
+            <span class="font-[700] text-gray-600">Tu donación</span>
+            <span class="font-[800] text-2xl text-gray-900" id="display-amount">$50.00</span>
+          </div>
+
+          <!-- EXPRESS CHECKOUT (Apple/Google Pay) -->
+          <div id="express-checkout-element" class="mb-6">
+            <!-- O Stripe injetará os botões reais do Apple Pay/Google Pay aqui -->
+          </div>
+
+          <div class="flex items-center gap-4 mb-6">
+            <div class="h-px bg-gray-200 flex-1"></div>
+            <span class="text-xs font-[700] text-gray-400 uppercase tracking-wider">O pagar con tarjeta</span>
+            <div class="h-px bg-gray-200 flex-1"></div>
+          </div>
+
+          <!-- Onde o Stripe Element vai renderizar -->
+          <div id="payment-element" class="stripe-container mb-6">
+            <!-- Loading state visual -->
+            <div class="animate-pulse flex flex-col gap-3">
+              <div class="h-12 bg-gray-200 rounded-[8px] w-full"></div>
+              <div class="flex gap-3">
+                <div class="h-12 bg-gray-200 rounded-[8px] w-1/2"></div>
+                <div class="h-12 bg-gray-200 rounded-[8px] w-1/2"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Anonymous Checkbox -->
+          <div class="mb-6 flex items-start gap-2.5 px-1">
+            <input type="checkbox" id="anonymous" class="mt-[3px] w-4 h-4 text-gfm-green border-gray-300 rounded focus:ring-gfm-green cursor-pointer shrink-0">
+            <div class="flex-1 leading-snug">
+              <label for="anonymous" class="text-[14px] text-gray-600 font-[600] cursor-pointer select-none">
+                Ocultar mi nombre del público
+              </label>
+              
+              <!-- Inline Tooltip Icon -->
+              <div class="inline-block relative group ml-1 align-middle translate-y-[-1px]">
+                <button type="button" class="text-gray-400 hover:text-gray-600 focus:outline-none transition-colors">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-[16px] w-[16px]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </button>
+                
+                <!-- Dark Bubble Tooltip -->
+                <div class="absolute bottom-full right-[-10px] mb-2 w-[240px] bg-[#222222] text-white text-[12px] p-3 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none text-left z-50 shadow-xl font-normal">
+                  Aparecerás como "Anónimo" ante otros donantes. Los organizadores sí podrán ver tu información para el recibo.
+                  <!-- Tail arrow -->
+                  <div class="absolute top-full right-[12px] w-2.5 h-2.5 bg-[#222222] transform rotate-45 -mt-[5px]"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <button id="submit" class="btn-checkout w-full font-[800] text-xl py-4 rounded-[30px] flex justify-center items-center gap-2 shadow-md">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 opacity-80" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd" /></svg>
+            <span id="button-text">Donar $50.00</span>
+            <div id="spinner" class="hidden animate-spin rounded-full h-5 w-5 border-b-2 border-current"></div>
+          </button>
+
+          <div id="payment-message" class="hidden mt-4 text-sm text-red-600 font-[700] text-center"></div>
+        </form>
+
+      </div>
+      
+      <!-- Footer Trust -->
+      <div class="bg-gray-50 p-4 border-t border-gray-100 flex flex-col items-center justify-center text-center">
+        <div class="flex items-center gap-1.5 opacity-60 hover:opacity-80 transition-opacity">
+          <span class="text-[11px] font-[700] text-gray-500 uppercase tracking-wide">Powered by</span>
+          <img src="https://upload.wikimedia.org/wikipedia/commons/b/ba/Stripe_Logo%2C_revised_2016.svg" alt="Stripe" class="h-4">
+        </div>
+        <div class="flex items-center gap-1.5 text-[10px] text-gray-400 font-[600] mt-2">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+          Seguridad bancaria cifrada de 256-bits
+        </div>
+      </div>
+
+    </div>
+    
+  </main>
+
+  <script>
+    const stripe = Stripe("pk_live_51UHDsvPPEdM2PPyRh4N59s1q0D5SPQqPTw25IQaiSyd3eW0fzCtXpfMugFlzUNVxjv4ClqeQnMeos8gCHhFoWh5Z00V1wAUZAY");
+    let elements;
+
+    // 1. Extração de Parâmetros e UTMs da URL
+    const urlParams = new URLSearchParams(window.location.search);
+    
+    // Fallback de segurança contra manipulação de URL (Prevenção de NaN / Crash)
+    let amount = parseFloat(urlParams.get('amount'));
+    if (isNaN(amount) || amount < 1) amount = 50.00;
+    
+    let raised = parseFloat(urlParams.get('raised'));
+    if (isNaN(raised) || raised < 0) raised = 212450;
+    
+    // Pegar todas as UTMs para o UTMify
+    const metadata = {};
+    for (const [key, value] of urlParams.entries()) {
+      if (key !== 'amount' && key !== 'raised' && value.length < 500) { // Limit metadata size
+        metadata[key] = value;
+      }
+    }
+    
+    // 2. Atualização Visual Dinâmica
+    document.getElementById('display-amount').innerText = `$${amount.toFixed(2)}`;
+    document.getElementById('button-text').innerText = `Donar $${amount.toFixed(2)}`;
+
+    // Atualiza a Barra de Progresso Falsa sincronizada com a VSL
+    const goal = 268000;
+    const percentage = Math.min(Math.round((raised / goal) * 100), 100);
+    
+    // Formata o número com vírgula para milhar
+    const formattedRaised = raised.toLocaleString('en-US');
+    document.getElementById('raised-text').innerText = `$${formattedRaised} recaudados`;
+    document.getElementById('progress-bar').style.width = `${percentage}%`;
+
+    async function initialize() {
+      try {
+        // Remove a tela de pulse (skeleton) do html inicial
+        document.getElementById("payment-element").innerHTML = "";
+
+        // 3. Chama nossa API na Vercel para criar a cobrança
+        const response = await fetch("/api/create-payment-intent", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ amount: amount, metadata: metadata }),
+        });
+        
+        const { clientSecret, error } = await response.json();
+        
+        if (error) {
+          showMessage("Error en el servidor: " + error);
+          return;
+        }
+
+        // 4. Injeta os elementos reais da Stripe
+        const appearance = {
+          theme: 'stripe',
+          variables: {
+            colorPrimary: '#55A44D',
+            colorBackground: '#ffffff',
+            colorText: '#30313d',
+            colorDanger: '#df1b41',
+            fontFamily: 'Nunito, Ideal Sans, system-ui, sans-serif',
+            spacingUnit: '4px',
+            borderRadius: '8px',
+          }
+        };
+
+        elements = stripe.elements({ clientSecret, appearance });
+
+        // Monta o Express Checkout (Apple/Google Pay)
+        const expressCheckoutElement = elements.create('expressCheckout');
+        expressCheckoutElement.mount('#express-checkout-element');
+
+        // Monta o Elemento de Cartão
+        const paymentElement = elements.create("payment", { layout: "tabs" });
+        paymentElement.mount("#payment-element");
+
+      } catch (e) {
+        console.error("Erro fatal:", e);
+        showMessage("No se pudo cargar el procesador de pagos.");
+      }
+    }
+
+    initialize();
+
+    // 5. Intercepta o clique no botão Pagar
+    document.querySelector("#payment-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      setLoading(true);
+
+      const { error } = await stripe.confirmPayment({
+        elements,
+        confirmParams: {
+          // Redireciona para o domínio externo do cliente (dinâmico com o valor) e repassa as UTMs
+          return_url: `https://graciascorazon.org/gracias/${amount}?${urlParams.toString()}`,
+        },
+      });
+
+      if (error) {
+        if (error.type === "card_error" || error.type === "validation_error") {
+          showMessage(error.message);
+        } else {
+          showMessage("Ha ocurrido un error inesperado.");
+        }
+        setLoading(false);
+      }
+    });
+
+    function showMessage(messageText) {
+      const messageContainer = document.querySelector("#payment-message");
+      messageContainer.classList.remove("hidden");
+      messageContainer.textContent = messageText;
+      setTimeout(function () {
+        messageContainer.classList.add("hidden");
+        messageContainer.textContent = "";
+      }, 6000);
+    }
+
+    function setLoading(isLoading) {
+      if (isLoading) {
+        document.querySelector("#submit").disabled = true;
+        document.querySelector("#spinner").classList.remove("hidden");
+        document.querySelector("#button-text").classList.add("hidden");
+      } else {
+        document.querySelector("#submit").disabled = false;
+        document.querySelector("#spinner").classList.add("hidden");
+        document.querySelector("#button-text").classList.remove("hidden");
+      }
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+{
+  "name": "checkout-nativo",
+  "version": "1.0.0",
+  "description": "Custom Stripe Checkout",
+  "main": "index.html",
+  "dependencies": {
+    "stripe": "^14.0.0"
+  }
+}
