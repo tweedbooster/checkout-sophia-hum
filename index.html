@@ -104,6 +104,17 @@
               </div>
             </div>
           </div>
+          
+          <!-- Order Bump -->
+          <label id="order-bump-container" class="hidden my-4 p-4 rounded-xl border-[1.5px] border-[#55A44D] bg-white shadow-sm flex items-center gap-4 cursor-pointer transition-all hover:shadow-md hover:border-[#3d7a36] relative overflow-hidden" for="order-bump-checkbox">
+            <div class="absolute top-0 right-0 bg-[#55A44D] text-white text-[9px] font-[800] px-3 py-[3px] rounded-bl-lg uppercase tracking-widest">Recomendado</div>
+            <input type="checkbox" id="order-bump-checkbox" class="w-6 h-6 rounded border-gray-300 cursor-pointer accent-[#55A44D] flex-shrink-0">
+            <div class="flex flex-col pr-2 mt-2">
+              <span id="order-bump-title" class="text-[16px] font-[800] text-gray-900 leading-tight"></span>
+              <span id="order-bump-desc" class="text-[12px] text-gray-500 leading-snug mt-1 font-[600]"></span>
+            </div>
+          </label>
+
           <button id="submit" class="btn-checkout w-full font-[800] text-xl py-4 rounded-[30px] flex justify-center items-center gap-2 shadow-md">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 opacity-80" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd" /></svg>
             <span id="button-text">Donar $50.00</span>
@@ -132,6 +143,18 @@
     if (isNaN(amount) || amount < 1) amount = 50.00;
     let raised = parseFloat(urlParams.get('raised'));
     if (isNaN(raised) || raised < 0) raised = 212450;
+    
+    let isBumpActive = false;
+    let orderBumpAmount = 0;
+    let currentPaymentIntentId = null;
+    const bumpMap = {
+      35: { bump: 5.37, title: "Añadir +$5.37 (Tarifas)", desc: "Cubre las tarifas de Stripe y el banco para que tus $35 lleguen completos a Sophia." },
+      50: { bump: 9.42, title: "Añadir +$9.42 (Tarifas)", desc: "Cubre las tarifas de Stripe y el banco para que tus $50 lleguen completos a Sophia." },
+      100: { bump: 15.85, title: "Añadir +$15.85 (Tarifas)", desc: "Cubre las tarifas de Stripe y el banco para que tus $100 lleguen completos a Sophia." },
+      200: { bump: 24.60, title: "Añadir +$24.60 (Tarifas)", desc: "Cubre las tarifas de Stripe y el banco para que tus $200 lleguen completos a Sophia." },
+      300: { bump: 35.45, title: "Añadir +$35.45 (Tarifas)", desc: "Cubre las tarifas de Stripe y el banco para que tus $300 lleguen completos a Sophia." }
+    };
+
     const metadata = {};
     for (const [key, value] of urlParams.entries()) {
       if (key !== 'amount' && key !== 'raised' && value.length < 500) {
@@ -145,6 +168,76 @@
     const formattedRaised = raised.toLocaleString('en-US');
     document.getElementById('raised-text').innerText = `$${formattedRaised} recaudados`;
     document.getElementById('progress-bar').style.width = `${percentage}%`;
+    
+    
+    function animateValue(id, start, end, duration, prefix = '', popEffect = false) {
+      const obj = document.getElementById(id);
+      let startTimestamp = null;
+      const step = (timestamp) => {
+        if (!startTimestamp) startTimestamp = timestamp;
+        const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+        const currentVal = (start + progress * (end - start)).toFixed(2);
+        obj.innerText = `${prefix}$${currentVal}`;
+        if (progress < 1) {
+          window.requestAnimationFrame(step);
+        } else {
+          if (popEffect) {
+            obj.style.transition = 'transform 0.2s, color 0.2s';
+            obj.style.transform = 'scale(1.08)';
+            obj.style.color = '#028a4a'; 
+            setTimeout(() => {
+              obj.style.transform = 'scale(1)';
+              obj.style.color = '';
+            }, 250);
+          }
+        }
+      };
+      window.requestAnimationFrame(step);
+    }
+
+    function initOrderBump() {
+      const bumpData = bumpMap[amount];
+      if (bumpData) {
+        orderBumpAmount = bumpData.bump;
+        document.getElementById('order-bump-title').innerText = bumpData.title;
+        document.getElementById('order-bump-desc').innerText = bumpData.desc;
+      } else {
+        orderBumpAmount = parseFloat((amount * 0.118).toFixed(2));
+        document.getElementById('order-bump-title').innerText = `Añadir +$${orderBumpAmount.toFixed(2)} (Tarifas)`;
+        document.getElementById('order-bump-desc').innerText = "Cubre las tarifas de Stripe y el banco para que tu donación llegue completa a Sophia.";
+      }
+      document.getElementById('order-bump-container').classList.remove('hidden');
+    }
+    initOrderBump();
+
+    document.getElementById('order-bump-checkbox').addEventListener('change', async (e) => {
+      isBumpActive = e.target.checked;
+      const totalAmount = isBumpActive ? (amount + orderBumpAmount) : amount;
+      const oldAmount = isBumpActive ? amount : (amount + orderBumpAmount);
+      
+      document.querySelector("#submit").disabled = true;
+      document.querySelector("#button-text").innerText = "Actualizando...";
+      
+      let updatedMetadata = { ...metadata };
+      if (isBumpActive) updatedMetadata.order_bump = "true";
+      
+      try {
+        const res = await fetch("/api/create-payment-intent", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ amount: totalAmount.toFixed(2), metadata: updatedMetadata, paymentIntentId: currentPaymentIntentId }),
+        });
+        const data = await res.json();
+        if (elements) {
+          await elements.fetchUpdates();
+        }
+      } catch (err) { console.error(err); }
+      
+      document.querySelector("#submit").disabled = false;
+      animateValue('button-text', oldAmount, totalAmount, 600, 'Donar ', isBumpActive);
+      animateValue('display-amount', oldAmount, totalAmount, 600, '', isBumpActive);
+    });
+
     async function initialize() {
       try {
         document.getElementById("payment-element").innerHTML = "";
@@ -154,6 +247,7 @@
           body: JSON.stringify({ amount: amount, metadata: metadata }),
         });
         const { clientSecret, error } = await response.json();
+        if (clientSecret) currentPaymentIntentId = clientSecret.split("_secret_")[0];
         if (error) {
           showMessage("Error en el servidor: " + error);
           return;
